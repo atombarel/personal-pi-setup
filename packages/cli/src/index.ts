@@ -172,7 +172,7 @@ function createProvider(options: ResolvedCliOptions): AgentProvider {
       model: options.model ?? "openai/gpt-4.1-mini",
       baseUrl: options.baseUrl ?? process.env.OPENROUTER_BASE_URL,
       appUrl: process.env.OPENROUTER_APP_URL,
-      appTitle: process.env.OPENROUTER_APP_TITLE ?? "Pi Coding Agent"
+      appTitle: process.env.OPENROUTER_APP_TITLE ?? "Personal Pi Setup"
     });
   }
 
@@ -327,7 +327,7 @@ function requireValue(args: string[], flag: string): string {
 }
 
 function printHelp(): void {
-  process.stdout.write(`Pi Coding Agent
+  process.stdout.write(`Personal Pi Setup
 
 Usage:
   pi run "prompt" [--cwd path] [--config path] [--profile name] [--provider echo|codex-sdk|codex-exec|openrouter|openai] [--model model] [--base-url url] [--codex-profile name] [--codex-sandbox mode] [--extension path] [--skill id]

@@ -1,12 +1,14 @@
-# Pi Coding Agent
+# Personal Pi Setup
 
-Pi is a small, hackable coding-agent starter kit. It is built around a simple idea: keep the agent core boring and make everything interesting an extension.
+Personal Pi Setup is the local base for building my own Pi-style coding agent. It keeps the runtime small, makes extensions and skills first-class, and lets me switch between Codex SDK and OpenRouter without rewriting the agent.
 
-This repo gives you:
+This repo is set up around:
 
 - A TypeScript CLI named `pi`
-- A core runtime that composes prompts, loads extensions, registers tools, and talks to a provider
-- An extension SDK for adding tools, system instructions, and skills
+- A core runtime that composes prompts, loads extensions, registers tools, and talks to provider adapters
+- Primary providers for Codex SDK and OpenRouter
+- A Codex exec fallback for one-shot shell workflows
+- An extension SDK for adding tools, system instructions, and reusable skills
 - A base extension with starter skills like `codex-goal`, `rtk`, and `extension-author`
 - A sample `repo-inspector` extension
 - Tests and GitHub Actions CI
@@ -23,38 +25,53 @@ npm run dev -- run "add a Redux Toolkit slice" --extension ./extensions/base/src
 
 The default provider is `echo`, so the command works without API keys.
 
-To use your Codex OAuth / ChatGPT subscription login, sign in once with the Codex CLI:
+## Provider Setup
+
+### Codex SDK
+
+Use this when I want Pi to run through my Codex OAuth / ChatGPT subscription login.
 
 ```bash
 codex login
 npm run dev -- run "what should I build next?" --provider codex-sdk
 ```
 
-The `codex-sdk` provider uses `@openai/codex-sdk`, so it keeps Codex's existing browser login, cached credentials, token refresh, workspace controls, and subscription access while giving Pi a proper thread-based integration. `codex-exec` is still available as a shell fallback.
+The `codex-sdk` provider uses `@openai/codex-sdk`, so it keeps Codex's existing browser login, cached credentials, token refresh, workspace controls, and subscription access while giving Pi a proper thread-based integration.
 
-To call OpenAI through the API-key path instead:
+### OpenRouter
 
-```bash
-export OPENAI_API_KEY=...
-export PI_PROVIDER=openai
-export PI_MODEL=gpt-4.1-mini
-npm run dev -- run "what should I build next?"
-```
-
-To use OpenRouter:
+Use this when I want routed model access outside the Codex subscription path.
 
 ```bash
 export OPENROUTER_API_KEY=...
 npm run dev -- run "what should I build next?" --provider openrouter --model anthropic/claude-sonnet-4
 ```
 
+### Codex Exec Fallback
+
+Use this when a plain noninteractive Codex CLI bridge is enough.
+
+```bash
+npm run dev -- run "summarize this repo" --provider codex-exec
+```
+
+### OpenAI API Key
+
+This path is still available, but it is intentionally separate from Codex subscription auth.
+
+```bash
+export OPENAI_API_KEY=...
+npm run dev -- run "what should I build next?" --provider openai --model gpt-4.1-mini
+```
+
+## Profiles
+
 For everyday switching, copy `pi.config.example.json` to `pi.config.json` and use profiles:
 
 ```bash
 npm run dev -- run "use my default profile"
-npm run dev -- run "try OpenRouter" --profile openrouter
 PI_PROFILE=codex npm run dev -- run "use the Codex SDK profile"
-PI_PROFILE=openai-api npm run dev -- run "use the OpenAI API-key profile"
+PI_PROFILE=openrouter npm run dev -- run "try OpenRouter"
 ```
 
 ## Project Shape
