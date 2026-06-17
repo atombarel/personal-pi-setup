@@ -1,0 +1,7 @@
+{
+  "extensions": [
+    "./examples/extensions/repo-inspector/dist/index.js"
+  ],
+  "provider": "echo",
+  "model": "gpt-4.1-mini"
+}
