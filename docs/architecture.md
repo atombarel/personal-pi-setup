@@ -7,6 +7,7 @@ Pi starts as a local coding agent with a deliberately small kernel.
 - The core owns orchestration, provider calls, extension loading, permissions, and session state.
 - Extensions own domain-specific tools, extra instructions, skills, and workflow shortcuts.
 - Providers are adapters. The rest of the agent should not care whether the model is OpenAI, local, hosted, or something else.
+- Provider profiles make switching cheap: `echo` for no-key local testing, `openai` for the direct API path, and `openrouter` for routed multi-model access.
 - Dangerous capabilities must pass through a permission layer before they become default behavior.
 
 ## Runtime Flow
@@ -38,6 +39,28 @@ A skill is a lightweight operating mode:
 - `prompt`: focused instructions appended only when the skill is selected.
 
 Skills should be narrow. Prefer several small skills over one broad "do everything" prompt.
+
+## Provider Profiles
+
+`pi.config.json` can define named provider profiles:
+
+```json
+{
+  "activeProfile": "echo",
+  "profiles": {
+    "codex": {
+      "provider": "openai",
+      "model": "gpt-4.1-mini"
+    },
+    "openrouter": {
+      "provider": "openrouter",
+      "model": "anthropic/claude-sonnet-4"
+    }
+  }
+}
+```
+
+Precedence is: CLI flags, environment variables, selected profile, flat config defaults, then `echo`.
 
 ## Near-Term Build Plan
 

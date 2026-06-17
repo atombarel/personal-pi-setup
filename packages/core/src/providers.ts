@@ -83,3 +83,70 @@ export class OpenAIResponsesProvider implements AgentProvider {
     };
   }
 }
+
+export interface OpenRouterProviderOptions {
+  apiKey: string;
+  model: string;
+  baseUrl?: string;
+  appUrl?: string;
+  appTitle?: string;
+}
+
+export class OpenRouterProvider implements AgentProvider {
+  readonly name = "openrouter";
+  private readonly apiKey: string;
+  private readonly model: string;
+  private readonly baseUrl: string;
+  private readonly appUrl?: string;
+  private readonly appTitle?: string;
+
+  constructor(options: OpenRouterProviderOptions) {
+    this.apiKey = options.apiKey;
+    this.model = options.model;
+    this.baseUrl = options.baseUrl ?? "https://openrouter.ai/api/v1";
+    this.appUrl = options.appUrl;
+    this.appTitle = options.appTitle;
+  }
+
+  async complete(request: ProviderRequest): Promise<ProviderResponse> {
+    const headers: Record<string, string> = {
+      "Authorization": `Bearer ${this.apiKey}`,
+      "Content-Type": "application/json"
+    };
+
+    if (this.appUrl) {
+      headers["HTTP-Referer"] = this.appUrl;
+    }
+
+    if (this.appTitle) {
+      headers["X-OpenRouter-Title"] = this.appTitle;
+    }
+
+    const response = await fetch(`${this.baseUrl}/chat/completions`, {
+      method: "POST",
+      headers,
+      body: JSON.stringify({
+        model: request.model ?? this.model,
+        messages: [
+          { role: "system", content: request.systemPrompt },
+          { role: "user", content: request.prompt }
+        ]
+      })
+    });
+
+    if (!response.ok) {
+      const body = await response.text();
+      throw new Error(`OpenRouter provider failed with ${response.status}: ${body}`);
+    }
+
+    const body = await response.json() as {
+      choices?: Array<{ message?: { content?: string } }>;
+    };
+    const content = body.choices?.[0]?.message?.content;
+
+    return {
+      content: content ?? JSON.stringify(body, null, 2),
+      raw: body
+    };
+  }
+}

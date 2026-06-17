@@ -6,6 +6,19 @@
   "skills": [
     "codex-goal"
   ],
-  "provider": "echo",
-  "model": "gpt-4.1-mini"
+  "activeProfile": "echo",
+  "profiles": {
+    "echo": {
+      "provider": "echo",
+      "model": "none"
+    },
+    "codex": {
+      "provider": "openai",
+      "model": "gpt-4.1-mini"
+    },
+    "openrouter": {
+      "provider": "openrouter",
+      "model": "anthropic/claude-sonnet-4"
+    }
+  }
 }

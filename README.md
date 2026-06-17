@@ -30,6 +30,21 @@ export PI_MODEL=gpt-4.1-mini
 npm run dev -- run "what should I build next?"
 ```
 
+To use OpenRouter:
+
+```bash
+export OPENROUTER_API_KEY=...
+npm run dev -- run "what should I build next?" --provider openrouter --model anthropic/claude-sonnet-4
+```
+
+For everyday switching, copy `pi.config.example.json` to `pi.config.json` and use profiles:
+
+```bash
+npm run dev -- run "use my default profile"
+npm run dev -- run "try OpenRouter" --profile openrouter
+PI_PROFILE=codex npm run dev -- run "use the OpenAI profile"
+```
+
 ## Project Shape
 
 ```text

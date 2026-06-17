@@ -1,20 +1,50 @@
 #!/usr/bin/env node
+import { readFile } from "node:fs/promises";
 import path from "node:path";
-import { AgentRuntime, EchoProvider, loadExtension, OpenAIResponsesProvider } from "@pi/core";
+import {
+  AgentRuntime,
+  EchoProvider,
+  loadExtension,
+  OpenAIResponsesProvider,
+  OpenRouterProvider
+} from "@pi/core";
 import type { AgentProvider } from "@pi/core";
 
 interface CliOptions {
   command?: string;
   prompt?: string;
   cwd: string;
-  provider: string;
+  configPath?: string;
+  profile?: string;
+  provider?: string;
   model?: string;
+  baseUrl?: string;
   extensions: string[];
   skills: string[];
 }
 
+interface ResolvedCliOptions extends CliOptions {
+  provider: string;
+}
+
+interface ProviderProfile {
+  provider?: string;
+  model?: string;
+  baseUrl?: string;
+}
+
+interface PiConfig {
+  activeProfile?: string;
+  profile?: string;
+  provider?: string;
+  model?: string;
+  extensions?: string[];
+  skills?: string[];
+  profiles?: Record<string, ProviderProfile>;
+}
+
 async function main(argv: string[]): Promise<void> {
-  const options = parseArgs(argv);
+  const options = await resolveOptions(parseArgs(argv));
 
   if (!options.command || options.command === "help") {
     printHelp();
@@ -39,7 +69,7 @@ async function main(argv: string[]): Promise<void> {
   throw new Error(`Unknown command "${options.command}".`);
 }
 
-async function runAgent(options: CliOptions): Promise<void> {
+async function runAgent(options: ResolvedCliOptions): Promise<void> {
   if (!options.prompt) {
     throw new Error("Missing prompt. Example: pi run \"summarize this repo\"");
   }
@@ -49,7 +79,7 @@ async function runAgent(options: CliOptions): Promise<void> {
   process.stdout.write(`${result.content}\n`);
 }
 
-async function listExtensions(options: CliOptions): Promise<void> {
+async function listExtensions(options: ResolvedCliOptions): Promise<void> {
   const runtime = await createRuntime(options);
   const extensions = runtime.listExtensions();
 
@@ -64,7 +94,7 @@ async function listExtensions(options: CliOptions): Promise<void> {
   }
 }
 
-async function listSkills(options: CliOptions): Promise<void> {
+async function listSkills(options: ResolvedCliOptions): Promise<void> {
   const runtime = await createRuntime(options);
   const skills = runtime.listSkills();
 
@@ -78,7 +108,7 @@ async function listSkills(options: CliOptions): Promise<void> {
   }
 }
 
-async function createRuntime(options: CliOptions): Promise<AgentRuntime> {
+async function createRuntime(options: ResolvedCliOptions): Promise<AgentRuntime> {
   const extensions = await Promise.all(
     options.extensions.map((extensionPath) => loadExtension(extensionPath, options.cwd))
   );
@@ -92,7 +122,7 @@ async function createRuntime(options: CliOptions): Promise<AgentRuntime> {
   });
 }
 
-function createProvider(options: CliOptions): AgentProvider {
+function createProvider(options: ResolvedCliOptions): AgentProvider {
   if (options.provider === "echo") {
     return new EchoProvider();
   }
@@ -107,7 +137,23 @@ function createProvider(options: CliOptions): AgentProvider {
     return new OpenAIResponsesProvider({
       apiKey,
       model: options.model ?? "gpt-4.1-mini",
-      baseUrl: process.env.OPENAI_BASE_URL
+      baseUrl: options.baseUrl ?? process.env.OPENAI_BASE_URL
+    });
+  }
+
+  if (options.provider === "openrouter") {
+    const apiKey = process.env.OPENROUTER_API_KEY;
+
+    if (!apiKey) {
+      throw new Error("OPENROUTER_API_KEY is required when PI_PROVIDER=openrouter or --provider openrouter.");
+    }
+
+    return new OpenRouterProvider({
+      apiKey,
+      model: options.model ?? "openai/gpt-4.1-mini",
+      baseUrl: options.baseUrl ?? process.env.OPENROUTER_BASE_URL,
+      appUrl: process.env.OPENROUTER_APP_URL,
+      appTitle: process.env.OPENROUTER_APP_TITLE ?? "Pi Coding Agent"
     });
   }
 
@@ -117,8 +163,6 @@ function createProvider(options: CliOptions): AgentProvider {
 function parseArgs(argv: string[]): CliOptions {
   const options: CliOptions = {
     cwd: process.cwd(),
-    provider: process.env.PI_PROVIDER ?? "echo",
-    model: process.env.PI_MODEL,
     extensions: [],
     skills: []
   };
@@ -135,10 +179,16 @@ function parseArgs(argv: string[]): CliOptions {
 
     if (arg === "--cwd") {
       options.cwd = path.resolve(requireValue(args, "--cwd"));
+    } else if (arg === "--config") {
+      options.configPath = requireValue(args, "--config");
+    } else if (arg === "--profile") {
+      options.profile = requireValue(args, "--profile");
     } else if (arg === "--provider") {
       options.provider = requireValue(args, "--provider");
     } else if (arg === "--model") {
       options.model = requireValue(args, "--model");
+    } else if (arg === "--base-url") {
+      options.baseUrl = requireValue(args, "--base-url");
     } else if (arg === "--extension") {
       options.extensions.push(requireValue(args, "--extension"));
     } else if (arg === "--skill") {
@@ -151,6 +201,74 @@ function parseArgs(argv: string[]): CliOptions {
   }
 
   return options;
+}
+
+async function resolveOptions(options: CliOptions): Promise<ResolvedCliOptions> {
+  const config = await loadConfig(options);
+  const profileName = options.profile
+    ?? process.env.PI_PROFILE
+    ?? config.activeProfile
+    ?? config.profile;
+  const profile = profileName ? config.profiles?.[profileName] : undefined;
+
+  if (profileName && !profile) {
+    throw new Error(`Profile "${profileName}" was not found in pi.config.json.`);
+  }
+
+  return {
+    ...options,
+    provider: options.provider
+      ?? process.env.PI_PROVIDER
+      ?? profile?.provider
+      ?? config.provider
+      ?? "echo",
+    model: options.model
+      ?? process.env.PI_MODEL
+      ?? profile?.model
+      ?? config.model,
+    baseUrl: options.baseUrl
+      ?? process.env.PI_BASE_URL
+      ?? profile?.baseUrl,
+    extensions: [
+      ...(config.extensions ?? []),
+      ...options.extensions
+    ],
+    skills: [
+      ...(config.skills ?? []),
+      ...options.skills
+    ]
+  };
+}
+
+async function loadConfig(options: CliOptions): Promise<PiConfig> {
+  const configPath = options.configPath
+    ? path.resolve(options.cwd, options.configPath)
+    : path.join(options.cwd, "pi.config.json");
+
+  try {
+    const content = await readFile(configPath, "utf8");
+    const parsed = JSON.parse(content) as unknown;
+
+    if (!isConfig(parsed)) {
+      throw new Error(`Invalid config file at ${configPath}.`);
+    }
+
+    return parsed;
+  } catch (error) {
+    if (isNodeError(error) && error.code === "ENOENT" && !options.configPath) {
+      return {};
+    }
+
+    throw error;
+  }
+}
+
+function isConfig(value: unknown): value is PiConfig {
+  return typeof value === "object" && value !== null && !Array.isArray(value);
+}
+
+function isNodeError(error: unknown): error is NodeJS.ErrnoException {
+  return error instanceof Error && "code" in error;
 }
 
 function requireValue(args: string[], flag: string): string {
@@ -167,12 +285,13 @@ function printHelp(): void {
   process.stdout.write(`Pi Coding Agent
 
 Usage:
-  pi run "prompt" [--cwd path] [--provider echo|openai] [--model model] [--extension path]
+  pi run "prompt" [--cwd path] [--config path] [--profile name] [--provider echo|openai|openrouter] [--model model] [--base-url url] [--extension path] [--skill id]
   pi extensions [--extension path]
   pi skills [--extension path]
 
 Examples:
   pi run "summarize this repo"
+  pi run "compare providers" --profile openrouter
   pi run "inspect the project" --extension ./examples/extensions/repo-inspector/dist/index.js
   pi run "build an RTK slice" --extension ./extensions/base/dist/index.js --skill rtk
 `);
