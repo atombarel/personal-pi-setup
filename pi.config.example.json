@@ -13,7 +13,11 @@
       "model": "none"
     },
     "codex": {
-      "provider": "codex",
+      "provider": "codex-sdk",
+      "codexSandbox": "workspace-write"
+    },
+    "codex-exec": {
+      "provider": "codex-exec",
       "codexSandbox": "workspace-write"
     },
     "openai-api": {

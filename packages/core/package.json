@@ -15,6 +15,7 @@
     "build": "tsc -p tsconfig.json"
   },
   "dependencies": {
+    "@openai/codex-sdk": "^0.140.0",
     "@pi/extension-sdk": "0.1.0"
   }
 }

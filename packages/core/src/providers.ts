@@ -1,4 +1,6 @@
 import { spawn } from "node:child_process";
+import { Codex } from "@openai/codex-sdk";
+import type { SandboxMode, ThreadOptions } from "@openai/codex-sdk";
 import type { AgentTool } from "@pi/extension-sdk";
 
 export interface ProviderRequest {
@@ -48,7 +50,7 @@ export interface CodexCliProviderOptions {
 }
 
 export class CodexCliProvider implements AgentProvider {
-  readonly name = "codex";
+  readonly name = "codex-exec";
   private readonly command: string;
   private readonly profile?: string;
   private readonly sandbox?: "read-only" | "workspace-write" | "danger-full-access";
@@ -99,6 +101,63 @@ export class CodexCliProvider implements AgentProvider {
       content: result.stdout.trim(),
       raw: {
         stderr: result.stderr.trim()
+      }
+    };
+  }
+}
+
+export interface CodexSdkProviderOptions {
+  sandboxMode?: SandboxMode;
+  skipGitRepoCheck?: boolean;
+}
+
+export class CodexSdkProvider implements AgentProvider {
+  readonly name = "codex-sdk";
+  private readonly sandboxMode?: SandboxMode;
+  private readonly skipGitRepoCheck: boolean;
+
+  constructor(options: CodexSdkProviderOptions = {}) {
+    this.sandboxMode = options.sandboxMode;
+    this.skipGitRepoCheck = options.skipGitRepoCheck ?? true;
+  }
+
+  async complete(request: ProviderRequest): Promise<ProviderResponse> {
+    const codex = new Codex();
+    const threadOptions: ThreadOptions = {
+      workingDirectory: request.cwd,
+      skipGitRepoCheck: this.skipGitRepoCheck
+    };
+
+    if (request.model) {
+      threadOptions.model = request.model;
+    }
+
+    if (this.sandboxMode) {
+      threadOptions.sandboxMode = this.sandboxMode;
+    }
+
+    const thread = codex.startThread(threadOptions);
+    const turn = await thread.run([
+      {
+        type: "text",
+        text: [
+          "<pi_runtime_instructions>",
+          request.systemPrompt,
+          "</pi_runtime_instructions>",
+          "",
+          "<user_prompt>",
+          request.prompt,
+          "</user_prompt>"
+        ].join("\n")
+      }
+    ]);
+
+    return {
+      content: turn.finalResponse,
+      raw: {
+        threadId: thread.id,
+        usage: turn.usage,
+        items: turn.items
       }
     };
   }

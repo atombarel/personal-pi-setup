@@ -4,6 +4,7 @@ import path from "node:path";
 import {
   AgentRuntime,
   CodexCliProvider,
+  CodexSdkProvider,
   EchoProvider,
   loadExtension,
   OpenAIResponsesProvider,
@@ -146,7 +147,13 @@ function createProvider(options: ResolvedCliOptions): AgentProvider {
     });
   }
 
-  if (options.provider === "codex") {
+  if (options.provider === "codex" || options.provider === "codex-sdk") {
+    return new CodexSdkProvider({
+      sandboxMode: options.codexSandbox
+    });
+  }
+
+  if (options.provider === "codex-exec") {
     return new CodexCliProvider({
       profile: options.codexProfile,
       sandbox: options.codexSandbox
@@ -323,7 +330,7 @@ function printHelp(): void {
   process.stdout.write(`Pi Coding Agent
 
 Usage:
-  pi run "prompt" [--cwd path] [--config path] [--profile name] [--provider echo|codex|openai|openrouter] [--model model] [--base-url url] [--codex-profile name] [--codex-sandbox mode] [--extension path] [--skill id]
+  pi run "prompt" [--cwd path] [--config path] [--profile name] [--provider echo|codex-sdk|codex-exec|openrouter|openai] [--model model] [--base-url url] [--codex-profile name] [--codex-sandbox mode] [--extension path] [--skill id]
   pi extensions [--extension path]
   pi skills [--extension path]
 

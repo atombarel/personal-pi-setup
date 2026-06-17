@@ -27,10 +27,10 @@ To use your Codex OAuth / ChatGPT subscription login, sign in once with the Code
 
 ```bash
 codex login
-npm run dev -- run "what should I build next?" --provider codex
+npm run dev -- run "what should I build next?" --provider codex-sdk
 ```
 
-The `codex` provider delegates to `codex exec`, so it uses Codex's existing browser login, cached credentials, token refresh, workspace controls, and subscription access.
+The `codex-sdk` provider uses `@openai/codex-sdk`, so it keeps Codex's existing browser login, cached credentials, token refresh, workspace controls, and subscription access while giving Pi a proper thread-based integration. `codex-exec` is still available as a shell fallback.
 
 To call OpenAI through the API-key path instead:
 
@@ -53,7 +53,7 @@ For everyday switching, copy `pi.config.example.json` to `pi.config.json` and us
 ```bash
 npm run dev -- run "use my default profile"
 npm run dev -- run "try OpenRouter" --profile openrouter
-PI_PROFILE=codex npm run dev -- run "use the Codex OAuth profile"
+PI_PROFILE=codex npm run dev -- run "use the Codex SDK profile"
 PI_PROFILE=openai-api npm run dev -- run "use the OpenAI API-key profile"
 ```
 
