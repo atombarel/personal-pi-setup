@@ -1,11 +1,11 @@
 # Personal Pi Setup
 
-Personal Pi Setup is the local base for my own Pi-style coding workflow. It does not try to rebuild a mature terminal UI from scratch. Instead, it launches real agent interfaces for daily work and keeps a small runtime for experiments, provider profiles, extensions, and skills.
+Personal Pi Setup is the local base for my own Pi-style coding agent. The goal is a first-party terminal interface with the feel of Claude Code / OpenCode, backed by Codex SDK and OpenRouter provider profiles.
 
 This repo is set up around:
 
 - A TypeScript CLI named `pi`
-- Launchers for real interfaces: Codex CLI and OpenCode
+- A real Ink-based terminal UI with transcript, activity, status, and composer panes
 - A core runtime that composes prompts, loads extensions, registers tools, and talks to provider adapters
 - Primary providers for Codex SDK and OpenRouter
 - A Codex exec fallback for one-shot shell workflows
@@ -19,8 +19,6 @@ This repo is set up around:
 ```bash
 npm install
 npm run build
-npm run dev -- codex
-npm run dev -- opencode
 npm run dev -- tui --config pi.config.example.json --profile echo
 npm run dev -- run "summarize this repo" --extension ./examples/extensions/repo-inspector/src/index.ts
 npm run dev -- skills --extension ./extensions/base/src/index.ts
@@ -29,25 +27,30 @@ npm run dev -- run "add a Redux Toolkit slice" --extension ./extensions/base/src
 
 The default provider is `echo`, so the command works without API keys.
 
-## Provider Setup
+## TUI
 
-## Real Interfaces
-
-Use these for actual day-to-day coding sessions:
+Use `pi tui` for the interactive agent interface:
 
 ```bash
-npm run dev -- codex
-npm run dev -- opencode
+npm run dev -- tui --profile codex
+npm run dev -- tui --profile openrouter --skill codex-goal
 ```
 
-- `pi codex` launches the real Codex CLI TUI. Use it for Codex OAuth / ChatGPT subscription access.
-- `pi opencode` launches OpenCode. Use it for OpenRouter and other model-provider routing.
+The current TUI includes:
 
-If `opencode` is not already installed, `pi opencode` falls back to `npx --yes opencode-ai@latest`.
+- Header with provider, model, workspace, and busy state
+- Transcript pane
+- Activity and status pane
+- Bottom composer
+- Slash commands for `/help`, `/status`, `/extensions`, `/skills`, `/tools`, `/clear`, and `/exit`
+
+Codex SDK sessions keep a persistent Codex thread alive. OpenRouter sessions keep chat history alive in the Pi runtime.
+
+## Provider Setup
 
 ### Codex SDK
 
-Use this for programmatic Codex runs inside the experimental Pi runtime.
+Use this when I want Pi to run through my Codex OAuth / ChatGPT subscription login.
 
 ```bash
 codex login
@@ -56,12 +59,6 @@ npm run dev -- run "what should I build next?" --provider codex-sdk
 
 The `codex-sdk` provider uses `@openai/codex-sdk`, so it keeps Codex's existing browser login, cached credentials, token refresh, workspace controls, and subscription access while giving Pi a proper thread-based integration.
 
-For the real Codex interface, use:
-
-```bash
-npm run dev -- codex
-```
-
 ### OpenRouter
 
 Use this when I want routed model access outside the Codex subscription path.
@@ -69,12 +66,6 @@ Use this when I want routed model access outside the Codex subscription path.
 ```bash
 export OPENROUTER_API_KEY=...
 npm run dev -- run "what should I build next?" --provider openrouter --model anthropic/claude-sonnet-4
-```
-
-For the real OpenRouter-friendly interface, use:
-
-```bash
-npm run dev -- opencode
 ```
 
 ### Codex Exec Fallback
@@ -103,28 +94,6 @@ npm run dev -- run "use my default profile"
 PI_PROFILE=codex npm run dev -- run "use the Codex SDK profile"
 PI_PROFILE=openrouter npm run dev -- run "try OpenRouter"
 ```
-
-## Experimental Shell
-
-`pi tui` is not the real interface. It is a lightweight chat/debug shell for testing the Pi runtime. It keeps a provider session alive, which means:
-
-- Codex SDK runs on a persistent Codex thread.
-- OpenRouter keeps chat history for the session.
-- Extensions and selected skills are applied to the session prompt.
-
-Available slash commands:
-
-```text
-/help
-/status
-/extensions
-/skills
-/tools
-/clear
-/exit
-```
-
-The real interface strategy is to use Codex CLI and OpenCode instead of rebuilding them here.
 
 ## Project Shape
 
@@ -171,9 +140,9 @@ export default defineExtension({
 
 ## Current Roadmap
 
-- Keep `pi codex` and `pi opencode` as the main daily interfaces
-- Generate/sync config for Codex and OpenCode from `pi.config.json`
+- Stream provider events into the TUI activity pane
+- Add command/file-change/diff panes
+- Add approval prompts
 - Add workspace permission policies
-- Add extension/skill export into Codex/OpenCode-compatible formats where possible
 - Add session storage and replay
-- Add small glue commands around common workflows
+- Add richer keyboard navigation and transcript scrolling

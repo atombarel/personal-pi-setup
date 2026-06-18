@@ -1,8 +1,8 @@
 #!/usr/bin/env node
-import { spawn } from "node:child_process";
 import { readFile } from "node:fs/promises";
 import path from "node:path";
-import { createInterface } from "node:readline/promises";
+import { render } from "ink";
+import React from "react";
 import {
   AgentRuntime,
   CodexCliProvider,
@@ -13,6 +13,7 @@ import {
   OpenRouterProvider
 } from "@pi/core";
 import type { AgentProvider } from "@pi/core";
+import { TuiApp } from "./tui/App.js";
 
 interface CliOptions {
   command?: string;
@@ -27,7 +28,6 @@ interface CliOptions {
   codexSandbox?: "read-only" | "workspace-write" | "danger-full-access";
   extensions: string[];
   skills: string[];
-  passthroughArgs: string[];
 }
 
 interface ResolvedCliOptions extends CliOptions {
@@ -70,16 +70,6 @@ async function main(argv: string[]): Promise<void> {
     return;
   }
 
-  if (options.command === "codex") {
-    await launchExternalUi("codex", options.passthroughArgs, options.cwd);
-    return;
-  }
-
-  if (options.command === "opencode") {
-    await launchOpenCode(options.passthroughArgs, options.cwd);
-    return;
-  }
-
   if (options.command === "extensions") {
     await listExtensions(options);
     return;
@@ -104,115 +94,27 @@ async function runAgent(options: ResolvedCliOptions): Promise<void> {
 }
 
 async function runTui(options: ResolvedCliOptions): Promise<void> {
-  const runtime = await createRuntime(options);
-  const session = runtime.startSession();
-  const rl = createInterface({
-    input: process.stdin,
-    output: process.stdout,
-    terminal: Boolean(process.stdin.isTTY && process.stdout.isTTY)
-  });
-
-  printTuiHeader(options);
-
-  try {
-    while (true) {
-      const input = (await rl.question("pi> ")).trim();
-
-      if (!input) {
-        continue;
-      }
-
-      if (input === "/exit" || input === "/quit") {
-        process.stdout.write("bye\n");
-        return;
-      }
-
-      if (input === "/help") {
-        printTuiHelp();
-        continue;
-      }
-
-      if (input === "/clear") {
-        console.clear();
-        printTuiHeader(options);
-        continue;
-      }
-
-      if (input === "/status") {
-        printRuntimeStatus(options, runtime);
-        continue;
-      }
-
-      if (input === "/extensions") {
-        printExtensions(runtime);
-        continue;
-      }
-
-      if (input === "/skills") {
-        printSkills(runtime);
-        continue;
-      }
-
-      if (input === "/tools") {
-        printTools(runtime);
-        continue;
-      }
-
-      process.stdout.write("\nPi is thinking...\n\n");
-
-      try {
-        const result = await session.run(input);
-        process.stdout.write(`${result.content.trim()}\n\n`);
-      } catch (error) {
-        const message = error instanceof Error ? error.message : String(error);
-        process.stdout.write(`Error: ${message}\n\n`);
-      }
-    }
-  } finally {
-    rl.close();
+  if (!process.stdin.isTTY || !process.stdout.isTTY) {
+    throw new Error("pi tui requires an interactive terminal. Use `pi run` for piped or scripted workflows.");
   }
+
+  const runtime = await createRuntime(options);
+  const app = render(
+    React.createElement(TuiApp, {
+      runtime,
+      provider: options.provider,
+      model: options.model,
+      cwd: options.cwd,
+      skills: options.skills
+    })
+  );
+
+  await app.waitUntilExit();
 }
 
 async function listExtensions(options: ResolvedCliOptions): Promise<void> {
   const runtime = await createRuntime(options);
   printExtensions(runtime);
-}
-
-async function launchOpenCode(args: string[], cwd: string): Promise<void> {
-  try {
-    await launchExternalUi("opencode", args, cwd);
-  } catch (error) {
-    if (isNodeError(error) && error.code === "ENOENT") {
-      await launchExternalUi("npx", ["--yes", "opencode-ai@latest", ...args], cwd);
-      return;
-    }
-
-    throw error;
-  }
-}
-
-function launchExternalUi(command: string, args: string[], cwd: string): Promise<void> {
-  return new Promise((resolve, reject) => {
-    const child = spawn(command, args, {
-      cwd,
-      stdio: "inherit"
-    });
-
-    child.on("error", reject);
-    child.on("exit", (code, signal) => {
-      if (signal) {
-        reject(new Error(`${command} exited from signal ${signal}.`));
-        return;
-      }
-
-      if (code === 0) {
-        resolve();
-        return;
-      }
-
-      reject(new Error(`${command} exited with code ${code}.`));
-    });
-  });
 }
 
 function printExtensions(runtime: AgentRuntime): void {
@@ -329,8 +231,7 @@ function parseArgs(argv: string[]): CliOptions {
   const options: CliOptions = {
     cwd: process.cwd(),
     extensions: [],
-    skills: [],
-    passthroughArgs: []
+    skills: []
   };
 
   const args = [...argv];
@@ -342,11 +243,6 @@ function parseArgs(argv: string[]): CliOptions {
 
   if (options.command === "run") {
     options.prompt = args.shift();
-  }
-
-  if (options.command === "codex" || options.command === "opencode") {
-    options.passthroughArgs = args;
-    return options;
   }
 
   while (args.length > 0) {
@@ -487,61 +383,19 @@ function printHelp(): void {
 
 Usage:
   pi run "prompt" [--cwd path] [--config path] [--profile name] [--provider echo|codex-sdk|codex-exec|openrouter|openai] [--model model] [--base-url url] [--codex-profile name] [--codex-sandbox mode] [--extension path] [--skill id]
-  pi codex [...args]       launch the real Codex TUI/app flow
-  pi opencode [...args]    launch OpenCode for OpenRouter and other providers
   pi tui [--cwd path] [--config path] [--profile name] [--provider echo|codex-sdk|openrouter]
   pi extensions [--extension path]
   pi skills [--extension path]
 
 Examples:
-  pi codex
-  pi opencode
-  pi run "summarize this repo"
   pi tui --profile codex
   pi tui --profile openrouter --skill codex-goal
+  pi run "summarize this repo"
   pi run "use my Codex subscription" --profile codex
   pi run "compare providers" --profile openrouter
   pi run "inspect the project" --extension ./examples/extensions/repo-inspector/dist/index.js
   pi run "build an RTK slice" --extension ./extensions/base/dist/index.js --skill rtk
 `);
-}
-
-function printTuiHeader(options: ResolvedCliOptions): void {
-  process.stdout.write([
-    "Personal Pi Setup",
-    `provider: ${options.provider}${options.model ? ` / ${options.model}` : ""}`,
-    `cwd: ${options.cwd}`,
-    "type /help for commands, /exit to quit",
-    ""
-  ].join("\n"));
-}
-
-function printTuiHelp(): void {
-  process.stdout.write([
-    "",
-    "Commands:",
-    "  /help        show this help",
-    "  /status      show provider, cwd, skills, extensions, and tools",
-    "  /extensions  list loaded extensions",
-    "  /skills      list loaded skills",
-    "  /tools       list loaded tools",
-    "  /clear       clear the screen",
-    "  /exit        quit",
-    ""
-  ].join("\n"));
-}
-
-function printRuntimeStatus(options: ResolvedCliOptions, runtime: AgentRuntime): void {
-  process.stdout.write([
-    "",
-    `provider: ${options.provider}`,
-    `model: ${options.model ?? "default"}`,
-    `cwd: ${options.cwd}`,
-    `extensions: ${runtime.listExtensions().map((extension) => extension.id).join(", ") || "none"}`,
-    `skills: ${options.skills.join(", ") || "none"}`,
-    `tools: ${runtime.listTools().map((tool) => tool.name).join(", ") || "none"}`,
-    ""
-  ].join("\n"));
 }
 
 main(process.argv.slice(2)).catch((error: unknown) => {
