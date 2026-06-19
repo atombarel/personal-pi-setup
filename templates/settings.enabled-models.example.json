@@ -1,0 +1,9 @@
+{
+  "enabledModels": [
+    "openai-codex/*:high",
+    "github-copilot/*:high",
+    "openrouter/moonshotai/kimi-k2.6:high",
+    "openrouter/anthropic/claude-sonnet-4.5:high",
+    "openrouter/deepseek/deepseek-r1:high"
+  ]
+}

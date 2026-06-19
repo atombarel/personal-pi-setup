@@ -3,24 +3,15 @@
   "version": "0.1.0",
   "private": true,
   "type": "module",
-  "workspaces": [
-    "packages/*",
-    "extensions/*",
-    "examples/extensions/*"
-  ],
   "scripts": {
-    "build": "tsc -b",
-    "check": "npm run build && npm run test",
-    "dev": "tsx packages/cli/src/index.ts",
-    "test": "vitest run"
+    "pi": "pi",
+    "doctor": "node scripts/doctor.mjs",
+    "check": "node scripts/check-config.mjs && pi --version",
+    "models": "pi --list-models",
+    "models:core": "pi --list-models openai-codex && pi --list-models github-copilot && pi --list-models openrouter",
+    "login": "pi"
   },
   "devDependencies": {
-    "@types/node": "^24.0.3",
-    "tsx": "^4.20.3",
-    "typescript": "^5.8.3",
-    "vitest": "^3.2.4"
-  },
-  "overrides": {
-    "esbuild": "^0.28.1"
+    "@earendil-works/pi-coding-agent": "^0.79.8"
   }
 }

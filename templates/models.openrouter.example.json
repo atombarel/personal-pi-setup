@@ -1,0 +1,37 @@
+{
+  "providers": {
+    "openrouter": {
+      "baseUrl": "https://openrouter.ai/api/v1",
+      "apiKey": "$OPENROUTER_API_KEY",
+      "api": "openai-completions",
+      "modelOverrides": {
+        "moonshotai/kimi-k2.6": {
+          "name": "Kimi K2.6 via OpenRouter"
+        },
+        "anthropic/claude-sonnet-4.5": {
+          "name": "Claude Sonnet 4.5 via OpenRouter",
+          "reasoning": true,
+          "compat": {
+            "openRouterRouting": {
+              "allow_fallbacks": true,
+              "require_parameters": false,
+              "data_collection": "deny"
+            }
+          }
+        },
+        "deepseek/deepseek-r1": {
+          "name": "DeepSeek R1 via OpenRouter",
+          "reasoning": true,
+          "compat": {
+            "thinkingFormat": "openrouter",
+            "openRouterRouting": {
+              "allow_fallbacks": true,
+              "require_parameters": false,
+              "data_collection": "deny"
+            }
+          }
+        }
+      }
+    }
+  }
+}
