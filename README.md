@@ -1,114 +1,162 @@
 # Personal Pi Setup
 
-This repo is my setup layer for the real [Pi coding agent](https://pi.dev/).
+Personal configuration for [Pi](https://pi.dev/), tuned for day-to-day coding work across Codex, GitHub Copilot, and OpenRouter-backed models.
 
-It is not a custom agent loop, not a separate TUI, and not a fork. The goal is to keep upstream Pi as the daily interface and put personal behavior in places Pi already supports:
+The repository keeps Pi settings, local skills, prompt templates, model recipes, and setup checks in one place so a machine can be made ready with a small number of commands.
 
-- `.pi/settings.json` for project-local defaults
-- `.pi/extensions/` for small behavior tweaks and commands
-- `.pi/skills/` for focused operating modes
-- `.pi/prompts/` for reusable prompt templates
-- `AGENTS.md` for baseline repo instructions
-- `templates/` for global files that Pi expects under `~/.pi/agent/`
-
-## Direction
-
-The setup is built around three model lanes:
-
-- **OpenAI Codex subscription** via Pi's `openai-codex` provider and `/login`
-- **GitHub Copilot** via Pi's `github-copilot` provider and `/login`
-- **OpenRouter** via `OPENROUTER_API_KEY` or Pi's auth file, with optional model overrides
-
-The interface stays Pi's interface. Customization should be small enough that updating Pi remains boring.
-
-## Install
+## Quick Start
 
 ```bash
 npm install
 npm run check
+npm run pi
 ```
 
-Then start Pi from this repo:
+On the first interactive launch, trust the project so Pi loads the local `.pi` resources:
+
+```text
+/trust
+```
+
+Restart Pi after saving the trust decision.
+
+For a one-off non-interactive run:
+
+```bash
+npx pi --approve -p "summarize this repo"
+```
+
+## Layout
+
+```text
+.
+├── .pi/
+│   ├── settings.json
+│   ├── extensions/pi-workbench.ts
+│   ├── skills/
+│   └── prompts/
+├── templates/
+│   ├── models.openrouter.example.json
+│   └── settings.enabled-models.example.json
+├── scripts/
+│   ├── check-config.mjs
+│   └── doctor.mjs
+├── AGENTS.md
+└── package.json
+```
+
+## Running Pi
+
+Default project settings use `openai-codex` with high thinking:
 
 ```bash
 npm run pi
 ```
 
-On first launch, run `/trust` so Pi can load the project-local `.pi` resources.
+Pass Pi flags after `--`:
 
-## Auth
+```bash
+npm run pi -- --provider openai-codex
+npm run pi -- --provider github-copilot
+OPENROUTER_API_KEY=... npm run pi -- --provider openrouter --model moonshotai/kimi-k2.6
+```
 
-Inside Pi, run:
+The local binary is also available through `npx`:
+
+```bash
+npx pi --provider openai-codex
+```
+
+## Providers
+
+### OpenAI Codex
+
+```bash
+npm run pi -- --provider openai-codex
+```
+
+Authenticate from inside Pi:
 
 ```text
 /login
 ```
 
-Then choose:
+Choose ChatGPT Plus/Pro (Codex). Pi stores and refreshes credentials in `~/.pi/agent/auth.json`.
 
-- ChatGPT Plus/Pro (Codex)
-- GitHub Copilot
-- OpenRouter, or set `OPENROUTER_API_KEY`
-
-Useful direct launches:
+### GitHub Copilot
 
 ```bash
-npx pi --provider openai-codex
-npx pi --provider github-copilot --models "github-copilot/*"
-OPENROUTER_API_KEY=... npx pi --provider openrouter --model moonshotai/kimi-k2.6
+npm run pi -- --provider github-copilot --models "github-copilot/*"
 ```
 
-## Global OpenRouter Overrides
+Authenticate through `/login`, then choose GitHub Copilot. If a model is unavailable, enable it from the VS Code Copilot Chat model selector first.
 
-Pi loads custom model definitions from `~/.pi/agent/models.json`. This repo keeps a starter file at:
+### OpenRouter
+
+```bash
+OPENROUTER_API_KEY=... npm run pi -- --provider openrouter --model moonshotai/kimi-k2.6
+```
+
+OpenRouter credentials can also be saved through `/login` or `~/.pi/agent/auth.json`.
+
+## Model Files
+
+Pi's custom provider and model definitions live at:
 
 ```text
-templates/models.openrouter.example.json
+~/.pi/agent/models.json
 ```
 
-Apply it manually when you want curated OpenRouter routing:
+This repo includes an OpenRouter starter:
 
 ```bash
 mkdir -p ~/.pi/agent
 cp templates/models.openrouter.example.json ~/.pi/agent/models.json
 ```
 
-Do not commit real secrets. Prefer `/login`, environment variables, or the macOS keychain/1Password command interpolation supported by Pi.
+Keep secrets out of this repository. Prefer `/login`, environment variables, 1Password, or macOS Keychain command interpolation for credentials.
 
-## Optional Model Cycling
+## Model Cycling
 
-Before auth, model cycling patterns can be noisy because Pi only lists available authenticated models. After `/login`, copy the `enabledModels` block from:
+Pi cycles models with `Ctrl+P` using the `enabledModels` setting.
+
+The default project settings do not enable a cycling list because unauthenticated providers generate noisy warnings. After logging in, copy the block from:
 
 ```text
 templates/settings.enabled-models.example.json
 ```
 
-into `.pi/settings.json` or `~/.pi/agent/settings.json`.
-
-## What Lives Here
+into either project settings or global settings:
 
 ```text
-.pi/
-  settings.json
-  extensions/pi-workbench.ts
-  skills/review/SKILL.md
-  skills/plan/SKILL.md
-  prompts/provider-smoke.md
-templates/
-  models.openrouter.example.json
-  settings.enabled-models.example.json
-scripts/
-  check-config.mjs
-  doctor.mjs
-AGENTS.md
+.pi/settings.json
+~/.pi/agent/settings.json
 ```
 
-## Useful Checks
+## Local Resources
+
+Paths in [`.pi/settings.json`](.pi/settings.json) resolve relative to `.pi`.
+
+```json
+{
+  "extensions": ["extensions/pi-workbench.ts"],
+  "skills": ["skills"],
+  "prompts": ["prompts"]
+}
+```
+
+Current resources:
+
+- `/pi-status`: shows the personal setup status and provider lanes.
+- `plan` skill: short planning mode for ambiguous work.
+- `review` skill: findings-first code review mode.
+- `provider-smoke` prompt: small read-only prompt for comparing providers.
+
+## Checks
 
 ```bash
 npm run check
 npm run doctor
-npm run models:core
 ```
 
-`models:core` requires network access and may depend on provider auth state.
+`check` validates local config and confirms the Pi binary version. `doctor` also reports optional auth/model state, including whether `~/.pi/agent/models.json` and `OPENROUTER_API_KEY` are present.
