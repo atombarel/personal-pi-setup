@@ -5,7 +5,7 @@ Personal configuration for [Pi](https://pi.dev/), tuned for day-to-day coding wo
 The repository keeps Pi settings, local skills, prompt templates, model recipes, and setup checks in one place so a machine can be made ready with one install/update command.
 
 It also loads a small RTK integration for token-efficient shell output in Pi sessions.
-Permission, tool-display, and theme resources are installed from this repo so Pi feels closer to Codex/Claude Code in daily use.
+Permission, tool-display, local Docker, MCP, Playwright, and theme resources are installed from this repo so Pi feels closer to Codex/Claude Code in daily use.
 
 ## Quick Start
 
@@ -40,7 +40,9 @@ pi -p "summarize this repo"
 .
 ├── .pi/
 │   ├── settings.json
+│   ├── mcp.json
 │   ├── agent/pi-permissions.jsonc
+│   ├── extensions/pi-docker.ts
 │   ├── extensions/pi-workbench.ts
 │   ├── themes/pi-studio-dark.json
 │   ├── skills/
@@ -195,6 +197,68 @@ Inside Pi:
 ```
 
 Project package installs are cached under `.pi/npm/`, which is intentionally ignored. The pinned package references in `.pi/settings.json` are the source of truth.
+
+## Local Docker
+
+This setup includes a small local extension at `.pi/extensions/pi-docker.ts`. It is for local Docker, Podman, or Nerdctl management from Pi, not for sandboxing Pi itself.
+
+Inside Pi:
+
+```text
+/docker:ps
+/docker:logs <name>
+/docker:stats
+/docker:inspect <name>
+/docker:restart <name>
+```
+
+The extension also exposes container tools to the model for listing containers, reading logs, inspecting state, and starting, stopping, or restarting local services. Mutating actions require interactive confirmation, and the extension intentionally does not expose prune or remove tools.
+
+Install Docker locally before relying on it:
+
+```bash
+docker --version
+docker context ls
+```
+
+## MCP And Playwright
+
+This setup installs [`pi-mcp-adapter`](https://www.npmjs.com/package/pi-mcp-adapter) as the Pi-side MCP bridge and ships a repo-managed Playwright MCP server config:
+
+```text
+.pi/mcp.json
+```
+
+The no-clone installer merges that config into:
+
+```text
+~/.pi/agent/mcp.json
+```
+
+The managed server is pinned so the same install/update command updates the MCP version intentionally:
+
+```json
+{
+  "mcpServers": {
+    "playwright": {
+      "command": "npx",
+      "args": ["-y", "@playwright/mcp@0.0.76"],
+      "lifecycle": "lazy"
+    }
+  }
+}
+```
+
+During install, the bootstrap runs `npx -y @playwright/mcp@0.0.76 --version` so a bad or unavailable MCP package pin fails early. The server remains lazy in Pi and starts only when the MCP adapter needs it.
+
+Inside Pi:
+
+```text
+/mcp
+/mcp setup
+```
+
+Use the adapter's `mcp` tool to search for Playwright browser tools, then call the matching tool through the adapter. This keeps MCP support available without dumping every browser tool into the model context by default.
 
 ## Plan Mode
 
@@ -358,7 +422,14 @@ It adds those paths to global Pi settings in `~/.pi/agent/settings.json`:
   "extensions": ["personal-pi-setup/extensions/pi-workbench.ts"],
   "skills": ["personal-pi-setup/skills"],
   "prompts": ["personal-pi-setup/prompts"],
-  "themes": ["personal-pi-setup/themes"]
+  "themes": ["personal-pi-setup/themes"],
+  "packages": [
+    "npm:@sherif-fanous/pi-rtk@0.6.0",
+    "npm:@narumitw/pi-plan-mode@0.5.0",
+    "npm:pi-permission-system@0.7.1",
+    "npm:pi-tool-display@0.4.3",
+    "npm:pi-mcp-adapter@2.10.0"
+  ]
 }
 ```
 
@@ -377,8 +448,11 @@ Current resources:
 
 - `/pi-status`: shows the personal setup status and provider lanes.
 - `/rtk`: controls RTK command rewriting for the current Pi session.
+- `/docker:*`: manages local Docker, Podman, or Nerdctl containers through the local Docker extension.
+- `/mcp`: configures and uses MCP servers through `pi-mcp-adapter`.
 - `/permission-system`: opens permission settings and YOLO controls.
 - `/tool-display`: controls compact tool rendering and diff display.
+- Playwright MCP: repo-managed lazy MCP server pinned in `.pi/mcp.json`.
 - `plan` skill: ordered tasks, vertical slices, acceptance criteria, checkpoints, and verification.
 - `review` skill: findings-first review across correctness, readability, architecture, security, and performance.
 - `provider-smoke` prompt: small read-only prompt for comparing providers.

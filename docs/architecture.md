@@ -22,6 +22,7 @@ This repo owns:
 - small extensions
 - reusable skills
 - provider and model recipes
+- shared MCP server pins
 - setup checks
 
 ## No-Clone Install
@@ -37,11 +38,12 @@ The shell bootstrap downloads a temporary GitHub archive for the selected repo r
 The installer owns these global Pi files:
 
 - `~/.pi/agent/settings.json`, merged with backups
+- `~/.pi/agent/mcp.json`, merged with backups from `.pi/mcp.json`
 - `~/.pi/agent/pi-permissions.jsonc`, copied from `templates/permissions/`
 - `~/.pi/agent/extensions/pi-tool-display/config.json`, copied from `templates/tool-display/`
 - `~/.pi/agent/personal-pi-setup/`, replaced with repo-managed extensions, skills, prompts, themes, templates, and docs
 
-The installer does not copy provider credentials, model overrides, session files, or `.env` files.
+The installer does not copy provider credentials, model overrides, session files, or `.env` files. Repo-managed MCP config must stay secret-free; machine-local MCP credentials belong in user-global config or environment-backed secret stores.
 
 ## Provider Lanes
 
@@ -67,3 +69,9 @@ Local extensions should stay small:
 - improve status display
 
 Avoid extensions that replace core Pi behavior unless the upstream extension point is clearly meant for it.
+
+## Local Integrations
+
+Local Docker support is provided by `.pi/extensions/pi-docker.ts`. It manages local Docker, Podman, or Nerdctl resources from Pi, but it does not sandbox Pi's own tool execution.
+
+MCP support is provided by the pinned `pi-mcp-adapter` Pi package. This repository owns the shared Playwright MCP server pin in `.pi/mcp.json`; the installer merges it into `~/.pi/agent/mcp.json` so no-clone installs and repo checkouts use the same versioned configuration.

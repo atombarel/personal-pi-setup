@@ -17,6 +17,7 @@ This project is enterprise-ready when it remains a thin, auditable setup layer a
 - OpenRouter remains a separate provider lane with `data_collection` denied in the example model overrides that support it.
 - Permission policies are explicit, with `balanced`, `review`, and `yolo` templates.
 - Project packages are pinned in `.pi/settings.json`; install output under `.pi/npm/` is ignored.
+- Shared MCP server pins are kept in `.pi/mcp.json`; the installer merges them into `~/.pi/agent/mcp.json`.
 - Session transcripts under `.pi/sessions/` are ignored and treated as sensitive.
 - CI runs configuration validation, Pi version smoke testing, npm audit, and the local doctor.
 
@@ -42,6 +43,7 @@ Never commit:
 - `.pi/npm/`
 - `.pi/agent/auth.json`
 - `.pi/agent/models.json`
+- credentialed MCP server config
 - provider API keys
 - copied terminal output containing secrets
 - proprietary session transcripts

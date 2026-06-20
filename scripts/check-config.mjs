@@ -8,6 +8,7 @@ const themePath = ".pi/themes/pi-studio-dark.json";
 const jsonFiles = [
   "package.json",
   ".pi/settings.json",
+  ".pi/mcp.json",
   ".pi/agent/pi-permissions.jsonc",
   themePath,
   "templates/models.openrouter.example.json",
@@ -32,7 +33,9 @@ const required = [
   ".github/CODEOWNERS",
   ".github/dependabot.yml",
   ".github/workflows/ci.yml",
+  ".pi/extensions/pi-docker.ts",
   ".pi/extensions/pi-workbench.ts",
+  ".pi/mcp.json",
   ".pi/skills/plan/SKILL.md",
   ".pi/skills/review/SKILL.md",
   ".pi/prompts/provider-smoke.md",
@@ -49,6 +52,13 @@ if (settings.theme !== themeName) {
 
 if (!Array.isArray(settings.themes) || !settings.themes.includes("themes")) {
   throw new Error("Expected .pi/settings.json to load the project themes directory.");
+}
+
+const expectedExtensions = ["extensions/pi-workbench.ts", "extensions/pi-docker.ts"];
+for (const extensionPath of expectedExtensions) {
+  if (!settings.extensions?.includes(extensionPath)) {
+    throw new Error(`Expected .pi/settings.json extensions to include ${extensionPath}`);
+  }
 }
 
 const enabledModelsTemplate = JSON.parse(
@@ -76,7 +86,8 @@ const expectedPackages = [
   "npm:@sherif-fanous/pi-rtk@0.6.0",
   "npm:@narumitw/pi-plan-mode@0.5.0",
   "npm:pi-permission-system@0.7.1",
-  "npm:pi-tool-display@0.4.3"
+  "npm:pi-tool-display@0.4.3",
+  "npm:pi-mcp-adapter@2.10.0"
 ];
 
 const packages = settings.packages ?? [];
@@ -94,6 +105,22 @@ const floatingPackages = packages.filter((packageName) => {
 
 if (floatingPackages.length > 0) {
   throw new Error(`Project Pi packages must be pinned: ${floatingPackages.join(", ")}`);
+}
+
+const mcpConfig = JSON.parse(await readFile(path.join(root, ".pi/mcp.json"), "utf8"));
+const playwrightServer = mcpConfig.mcpServers?.playwright;
+if (!playwrightServer) {
+  throw new Error("Expected .pi/mcp.json to define the playwright MCP server.");
+}
+
+const playwrightArgs = playwrightServer.args ?? [];
+if (
+  playwrightServer.command !== "npx" ||
+  !playwrightArgs.includes("-y") ||
+  !playwrightArgs.includes("@playwright/mcp@0.0.76") ||
+  playwrightServer.lifecycle !== "lazy"
+) {
+  throw new Error("Expected .pi/mcp.json to pin lazy npx @playwright/mcp@0.0.76.");
 }
 
 const gitignore = await readFile(path.join(root, ".gitignore"), "utf8");

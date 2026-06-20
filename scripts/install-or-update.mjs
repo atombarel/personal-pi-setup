@@ -60,14 +60,19 @@ if (!piPackageVersion) {
 }
 
 const setupPackages = sourceSettings.packages ?? [];
+const sourceMcpPath = path.join(sourceRoot, ".pi", "mcp.json");
+const sourceMcpConfig = JSON.parse(await readFile(sourceMcpPath, "utf8"));
+const retiredPackages = ["npm:container-dashboard@0.1.1"];
 const managedPaths = {
-  extensions: [`${managedName}/extensions/pi-workbench.ts`],
+  extensions: [`${managedName}/extensions/pi-workbench.ts`, `${managedName}/extensions/pi-docker.ts`],
   skills: [`${managedName}/skills`],
   prompts: [`${managedName}/prompts`],
   themes: [`${managedName}/themes`]
 };
 
 await requirePath(".pi/settings.json");
+await requirePath(".pi/mcp.json");
+await requirePath(".pi/extensions/pi-docker.ts");
 await requirePath(".pi/extensions/pi-workbench.ts");
 await requirePath(".pi/skills/plan/SKILL.md");
 await requirePath(".pi/skills/review/SKILL.md");
@@ -85,16 +90,19 @@ if (!options.skipPiInstall) {
 
 await replaceManagedDirectory();
 await installPolicy();
+await mergeGlobalMcpConfig();
 await installToolDisplayPreset();
 await mergeGlobalSettings();
 
 if (!options.skipPackageInstall) {
   const pi = resolvePiCommand();
+  await uninstallRetiredPackages();
   for (const packageSource of setupPackages) {
     if (typeof packageSource === "string") {
       run(pi.command, [...pi.prefixArgs, "install", packageSource]);
     }
   }
+  await installMcpPackages();
 }
 
 if (!options.skipVerify) {
@@ -209,10 +217,12 @@ async function verifyInstall() {
 
   const requiredFiles = [
     path.join(managedDir, "extensions", "pi-workbench.ts"),
+    path.join(managedDir, "extensions", "pi-docker.ts"),
     path.join(managedDir, "skills", "plan", "SKILL.md"),
     path.join(managedDir, "skills", "review", "SKILL.md"),
     path.join(managedDir, "prompts", "provider-smoke.md"),
     path.join(managedDir, "themes", "pi-studio-dark.json"),
+    path.join(agentDir, "mcp.json"),
     path.join(agentDir, "pi-permissions.jsonc"),
     path.join(agentDir, "extensions", "pi-tool-display", "config.json")
   ];
@@ -235,7 +245,87 @@ async function verifyInstall() {
     }
   }
 
+  const mcpPath = path.join(agentDir, "mcp.json");
+  const installedMcp = JSON.parse(await readFile(mcpPath, "utf8"));
+  for (const serverName of Object.keys(sourceMcpConfig.mcpServers ?? {})) {
+    const expected = JSON.stringify(sourceMcpConfig.mcpServers[serverName]);
+    const actual = JSON.stringify(installedMcp.mcpServers?.[serverName]);
+    if (actual !== expected) {
+      throw new Error(`Expected ${mcpPath} mcpServers.${serverName} to match repo config`);
+    }
+  }
+
   run(pi.command, [...pi.prefixArgs, "list", "--no-approve"]);
+}
+
+async function mergeGlobalMcpConfig() {
+  const mcpPath = path.join(agentDir, "mcp.json");
+  const existing = existsSync(mcpPath) ? JSON.parse(await readFile(mcpPath, "utf8")) : {};
+  const next = {
+    ...existing,
+    settings: {
+      ...(existing.settings ?? {}),
+      ...(sourceMcpConfig.settings ?? {})
+    },
+    mcpServers: {
+      ...(existing.mcpServers ?? {}),
+      ...(sourceMcpConfig.mcpServers ?? {})
+    }
+  };
+
+  await writeJsonWithBackup(mcpPath, next);
+}
+
+async function installMcpPackages() {
+  for (const packageSpec of managedNpxMcpPackages(sourceMcpConfig)) {
+    run("npx", ["-y", packageSpec, "--version"]);
+  }
+}
+
+async function uninstallRetiredPackages() {
+  const npmPackageDir = path.join(agentDir, "npm");
+  const packageJsonPath = path.join(npmPackageDir, "package.json");
+  if (!existsSync(packageJsonPath)) return;
+
+  const packageJson = JSON.parse(await readFile(packageJsonPath, "utf8"));
+  const dependencies = packageJson.dependencies ?? {};
+  for (const packageSource of retiredPackages) {
+    const packageName = npmPackageName(packageSource);
+    if (packageName && packageName in dependencies) {
+      run("npm", ["--prefix", npmPackageDir, "uninstall", packageName]);
+    }
+  }
+}
+
+function managedNpxMcpPackages(mcpConfig) {
+  const packageSpecs = [];
+  for (const serverConfig of Object.values(mcpConfig.mcpServers ?? {})) {
+    if (serverConfig?.command !== "npx") continue;
+    const args = Array.isArray(serverConfig.args) ? serverConfig.args : [];
+    if (!args.includes("-y")) continue;
+
+    const packageSpec = args.find((arg) => typeof arg === "string" && pinnedNpmSpec(arg));
+    if (packageSpec) packageSpecs.push(packageSpec);
+  }
+
+  return [...new Set(packageSpecs)];
+}
+
+function pinnedNpmSpec(value) {
+  const spec = value.replace(/^npm:/, "");
+  const nameStart = spec.startsWith("@") ? spec.indexOf("/", 1) + 1 : 0;
+  return spec.slice(nameStart).includes("@");
+}
+
+function npmPackageName(packageSource) {
+  const spec = packageSource.replace(/^npm:/, "");
+  if (spec.startsWith("@")) {
+    const versionSeparator = spec.indexOf("@", spec.indexOf("/") + 1);
+    return versionSeparator === -1 ? spec : spec.slice(0, versionSeparator);
+  }
+
+  const versionSeparator = spec.indexOf("@");
+  return versionSeparator === -1 ? spec : spec.slice(0, versionSeparator);
 }
 
 function mergeArray(existing, additions) {
@@ -247,7 +337,10 @@ function mergeArray(existing, additions) {
 }
 
 function mergePackages(existing, additions) {
-  const next = Array.isArray(existing) ? [...existing] : [];
+  const retired = new Set(retiredPackages);
+  const next = Array.isArray(existing)
+    ? existing.filter((entry) => !retired.has(packageEntrySource(entry)))
+    : [];
   for (const source of additions) {
     if (!next.some((entry) => packageEntrySource(entry) === source)) next.push(source);
   }

@@ -14,6 +14,7 @@ The supported version is the current `main` branch. Keep this repository rebased
 - Use environment variables, 1Password, macOS Keychain, or Pi auth storage for API keys.
 - Do not commit `.env`, `.env.*`, `.pi/sessions/`, `.pi/npm/`, `.pi/agent/auth.json`, or `.pi/agent/models.json`.
 - The no-clone installer updates global Pi setup files under `~/.pi/agent`, but it does not copy provider auth, model overrides, session transcripts, or `.env` files from this repository.
+- Repo-managed MCP config must not contain bearer tokens, API keys, cookies, or private endpoints. Put credentialed MCP servers in a user-global config or reference secrets through environment variables.
 - The installer backs up changed global settings and config files before writing replacements.
 - Treat session transcripts as sensitive. They can contain prompts, file paths, command output, credentials copied into terminals, and proprietary code context.
 - Rotate any provider key that may have been copied into a prompt, shell command, or committed file.
@@ -33,4 +34,4 @@ npm run audit
 npm run doctor
 ```
 
-`npm run install:check` validates the installer against the current checkout in a temporary Pi agent directory. `npm run check` validates required Pi resources and fails if sensitive runtime paths are tracked by Git. `npm run audit` blocks known moderate-or-higher npm advisories. `npm run doctor` reports local optional state without printing secret values.
+`npm run install:check` validates the installer against the current checkout in a temporary Pi agent directory. `npm run check` validates required Pi resources, pinned packages, and the Playwright MCP server pin, and fails if sensitive runtime paths are tracked by Git. `npm run audit` blocks known moderate-or-higher npm advisories. `npm run doctor` reports local optional state without printing secret values.

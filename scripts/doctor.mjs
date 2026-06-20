@@ -27,7 +27,10 @@ add("project settings", existsSync(".pi/settings.json"), ".pi/settings.json");
 add("permission policy", existsSync(".pi/agent/pi-permissions.jsonc"), ".pi/agent/pi-permissions.jsonc");
 add("project theme", existsSync(themePath), themePath);
 add("plan mode package", existsSync(".pi/npm/node_modules/@narumitw/pi-plan-mode"), ".pi/npm/node_modules/@narumitw/pi-plan-mode", false);
+add("mcp adapter package", existsSync(".pi/npm/node_modules/pi-mcp-adapter"), ".pi/npm/node_modules/pi-mcp-adapter", false);
+add("docker extension", existsSync(".pi/extensions/pi-docker.ts"), ".pi/extensions/pi-docker.ts");
 add("project extension", existsSync(".pi/extensions/pi-workbench.ts"), ".pi/extensions/pi-workbench.ts");
+add("project MCP config", existsSync(".pi/mcp.json"), ".pi/mcp.json");
 add("project skills", existsSync(".pi/skills"), ".pi/skills");
 
 if (existsSync(".pi/settings.json")) {
@@ -44,6 +47,17 @@ add("global models", existsSync(modelsPath), modelsPath, false);
 
 const toolDisplayConfigPath = path.join(os.homedir(), ".pi", "agent", "extensions", "pi-tool-display", "config.json");
 add("tool display config", existsSync(toolDisplayConfigPath), toolDisplayConfigPath, false);
+
+const mcpConfigPath = path.join(os.homedir(), ".pi", "agent", "mcp.json");
+add("global MCP config", existsSync(mcpConfigPath), mcpConfigPath, false);
+
+const docker = spawnSync("docker", ["--version"], { encoding: "utf8" });
+add("docker binary", docker.status === 0, commandOutput(docker, "not found"), false);
+
+const playwrightMcp = spawnSync("npx", ["-y", "@playwright/mcp@0.0.76", "--version"], {
+  encoding: "utf8"
+});
+add("playwright MCP", playwrightMcp.status === 0, commandOutput(playwrightMcp, "not available"), false);
 
 add("OPENROUTER_API_KEY", Boolean(process.env.OPENROUTER_API_KEY), process.env.OPENROUTER_API_KEY ? "set" : "not set", false);
 
