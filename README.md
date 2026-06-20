@@ -275,8 +275,8 @@ Current resources:
 - `/rtk`: controls RTK command rewriting for the current Pi session.
 - `/permission-system`: opens permission settings and YOLO controls.
 - `/tool-display`: controls compact tool rendering and diff display.
-- `plan` skill: short planning mode for ambiguous work.
-- `review` skill: findings-first code review mode.
+- `plan` skill: ordered tasks, vertical slices, acceptance criteria, checkpoints, and verification.
+- `review` skill: findings-first review across correctness, readability, architecture, security, and performance.
 - `provider-smoke` prompt: small read-only prompt for comparing providers.
 
 ## Checks
