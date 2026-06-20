@@ -112,7 +112,7 @@ This setup installs [`@sherif-fanous/pi-rtk`](https://www.npmjs.com/package/@she
 
 ```json
 {
-  "packages": ["npm:@sherif-fanous/pi-rtk"]
+  "packages": ["npm:@sherif-fanous/pi-rtk@0.6.0"]
 }
 ```
 
@@ -133,7 +133,28 @@ Inside Pi:
 /rtk enable
 ```
 
-Project package installs are cached under `.pi/npm/`, which is intentionally ignored. The package reference in `.pi/settings.json` is the source of truth.
+Project package installs are cached under `.pi/npm/`, which is intentionally ignored. The pinned package references in `.pi/settings.json` are the source of truth.
+
+## Plan Mode
+
+This setup installs [`@narumitw/pi-plan-mode`](https://www.npmjs.com/package/@narumitw/pi-plan-mode) as a project Pi package. It adds a Codex-like read-only planning mode for exploration, clarifying questions, and an explicit implementation handoff.
+
+Inside Pi:
+
+```text
+/plan
+/plan <prompt>
+/plan tools
+/plan exit
+```
+
+You can also start Pi directly in plan mode:
+
+```bash
+npm run pi -- --plan
+```
+
+While plan mode is active, Pi should inspect files and run read-only commands, but block edits/writes and mutating shell commands. When the plan is ready, the extension prompts whether to implement, stay in plan mode, or exit.
 
 ## Permissions
 
@@ -283,7 +304,31 @@ Current resources:
 
 ```bash
 npm run check
+npm run audit
 npm run doctor
 ```
 
-`check` validates local config and confirms the Pi binary version. `doctor` also reports optional auth/model state, including whether `~/.pi/agent/models.json` and `OPENROUTER_API_KEY` are present.
+`check` validates local config, confirms the Pi binary version, and fails if sensitive Pi runtime paths are tracked by Git. `audit` blocks moderate-or-higher npm advisories. `doctor` also reports optional auth/model state, including whether `~/.pi/agent/models.json` and `OPENROUTER_API_KEY` are present, without printing secret values.
+
+## Enterprise Readiness
+
+This repo is intentionally a thin setup layer around upstream Pi. It should stay easy to audit, rebase, and operate in company worktrees.
+
+Enterprise controls live in:
+
+- [Security policy](SECURITY.md)
+- [Architecture boundaries](docs/architecture.md)
+- [Enterprise readiness checklist](docs/enterprise-readiness.md)
+- [Code ownership](.github/CODEOWNERS)
+- [Dependabot updates for root npm and GitHub Actions](.github/dependabot.yml)
+- [CI](.github/workflows/ci.yml)
+
+Sensitive local state is ignored by default:
+
+- `.env` and `.env.*`
+- `.pi/sessions/`
+- `.pi/npm/`
+- `.pi/agent/auth.json`
+- `.pi/agent/models.json`
+
+Before using this setup in a company repository, require PR review, require CI on `main`, keep Dependabot enabled for tracked dependency manifests, review Pi package pin bumps intentionally, and use `review` or `balanced` permission modes unless the worktree is trusted and disposable.

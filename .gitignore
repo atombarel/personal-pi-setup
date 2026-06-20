@@ -1,6 +1,8 @@
 node_modules/
 .pi/npm/
 .pi/sessions/
+.pi/agent/auth.json
+.pi/agent/models.json
 dist/
 .env
 .env.*

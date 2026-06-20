@@ -7,6 +7,7 @@
     "pi": "pi",
     "doctor": "node scripts/doctor.mjs",
     "check": "node scripts/check-config.mjs && pi --version",
+    "audit": "npm audit --audit-level=moderate",
     "models": "pi --list-models",
     "models:core": "pi --list-models openai-codex && pi --list-models github-copilot && pi --list-models openrouter",
     "permissions:mode": "node scripts/permission-mode.mjs",
